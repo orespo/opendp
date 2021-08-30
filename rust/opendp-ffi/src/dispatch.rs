@@ -96,7 +96,7 @@ macro_rules! disp_expand {
     ($function:ident, ($rt_type:expr, [$($dispatch_type:ty),+]), $rt_dispatch_types:tt, $type_args:tt, $args:tt) => {
         match $rt_type.id {
             $(x if x == std::any::TypeId::of::<$dispatch_type>() => disp_1!($function, $rt_dispatch_types, $type_args, $dispatch_type, $args)),+,
-            _ => opendp::err!(FFI, "No match for concrete type {} ({:?})", $rt_type.descriptor, $rt_type.id).into()
+            _ => opendp::err!(FFI, "No match for concrete type {}", $rt_type.descriptor, $rt_type.id).into()
         }
     };
 }
@@ -104,7 +104,7 @@ macro_rules! disp_expand {
 #[cfg(debug_assertions)]
 macro_rules! disp_expand {
     ($function:ident, ($rt_type:expr, @primitives),              $rt_dispatch_types:tt, $type_args:tt, $args:tt) => {
-        disp_expand!($function, ($rt_type, [bool, i32, f64, String]), $rt_dispatch_types, $type_args, $args)
+        disp_expand!($function, ($rt_type, [bool, u32, i32, f64, String]), $rt_dispatch_types, $type_args, $args)
     };
     ($function:ident, ($rt_type:expr, @primitives_plus),         $rt_dispatch_types:tt, $type_args:tt, $args:tt) => {
         disp_expand!($function, ($rt_type, [i32, f64, String, AnyObject]), $rt_dispatch_types, $type_args, $args)
@@ -127,7 +127,7 @@ macro_rules! disp_expand {
     ($function:ident, ($rt_type:expr, [$($dispatch_type:ty),+]), $rt_dispatch_types:tt, $type_args:tt, $args:tt) => {
         match $rt_type.id {
             $(x if x == std::any::TypeId::of::<$dispatch_type>() => disp_1!($function, $rt_dispatch_types, $type_args, $dispatch_type, $args)),+,
-            _ => opendp::err!(FFI, "No match for concrete type {} ({:?}). You've got a debug binary! Consult https://docs.opendp.org/en/stable/developer/troubleshooting.html", $rt_type.descriptor, $rt_type.id).into()
+            _ => opendp::err!(FFI, "No match for concrete type {}. You've got a debug binary! Consult https://docs.opendp.org/en/stable/developer/developer-faq.html", $rt_type.descriptor).into()
         }
     };
 }
