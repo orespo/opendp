@@ -8,7 +8,7 @@ use crate::dist::{L1Distance, L2Distance, SmoothedMaxDivergence};
 use crate::dom::{AllDomain, MapDomain, SizedDomain};
 use crate::samplers::{SampleLaplace, SampleGaussian};
 use crate::error::Fallible;
-use crate::traits::{ExactIntCast, ExactIntBounds, CheckNull, TotalOrd};
+use crate::traits::{ExactIntCast, ExactIntBounds, CheckNull, TotalOrd, InfDiv, NegInfMul, InfLn, InfMul, InfAdd};
 
 // TIK: Type of Input Key
 // TIC: Type of Input Count
@@ -37,7 +37,8 @@ pub fn make_base_stability<MI, TIK, TIC>(
     where MI: BaseStabilityNoise,
           TIK: Eq + Hash + Clone + CheckNull,
           TIC: Integer + Clone + CheckNull,
-          MI::Distance: 'static + Float + Clone + TotalOrd + ExactIntCast<usize> + ExactIntCast<TIC> + CheckNull {
+          MI::Distance: 'static + Float + Clone + TotalOrd + ExactIntCast<usize> + ExactIntCast<TIC>
+          + CheckNull + InfDiv + NegInfMul + InfLn + InfMul + InfAdd {
     if scale.is_sign_negative() {
         return fallible!(MakeMeasurement, "scale must not be negative")
     }
@@ -66,30 +67,24 @@ pub fn make_base_stability<MI, TIK, TIC>(
         MI::default(),
         SmoothedMaxDivergence::default(),
         PrivacyRelation::new_fallible(move |&d_in: &MI::Distance, &(eps, del): &(MI::Distance, MI::Distance)|{
-            // let _eps: f64 = NumCast::from(eps).unwrap_test();
-            // let _del: f64 = NumCast::from(del).unwrap_test();
-            // println!("eps, del: {:?}, {:?}", _eps, _del);
-            let ideal_scale = d_in / (eps * _size);
-            let ideal_threshold = (_2 / del).ln() * ideal_scale + _size.recip();
+            // d_in / (eps * size)
+            let ideal_scale = d_in.inf_div(&eps.neg_inf_mul(&_size)?)?;
+            // ln(2 / del) * ideal_scale + 1/size
+            let ideal_threshold = _2.inf_div(&del)?.inf_ln()?
+                .inf_mul(&ideal_scale)?.inf_add(&_size.recip())?;
             // println!("ideal: {:?}, {:?}", ideal_sigma, ideal_threshold);
 
             if eps.is_sign_negative() || eps.is_zero() {
-                return fallible!(FailedRelation, "cause: epsilon <= 0")
-            }
-            if eps >= _size.ln() {
-                return fallible!(RelationDebug, "cause: epsilon >= n.ln()");
+                return fallible!(InvalidDistance, "epsilon must be positive")
             }
             if del.is_sign_negative() || del.is_zero() {
-                return fallible!(FailedRelation, "cause: delta <= 0")
-            }
-            if del >= _size.recip() {
-                return fallible!(RelationDebug, "cause: del >= n.ln()");
+                return fallible!(InvalidDistance, "delta must be positive")
             }
             if scale < ideal_scale {
-                return fallible!(RelationDebug, "cause: scale < d_in / (epsilon * n)")
+                return fallible!(RelationDebug, "scale must be >= d_in / (epsilon * size)")
             }
             if threshold < ideal_threshold {
-                return fallible!(RelationDebug, "cause: threshold < (2. / delta).ln() * d_in / (epsilon * n) + 1. / n");
+                return fallible!(RelationDebug, "threshold must be >= ln(2/delta) * d_in/(epsilon * size) + 1/size");
             }
             Ok(true)
         })
