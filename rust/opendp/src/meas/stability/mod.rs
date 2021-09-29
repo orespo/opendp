@@ -80,6 +80,14 @@ pub fn make_base_stability<MI, TIK, TIC>(
             if del.is_sign_negative() || del.is_zero() {
                 return fallible!(InvalidDistance, "delta must be positive")
             }
+            // TODO: Consider relaxing this check
+            if eps >= _size.ln() {
+                return fallible!(RelationDebug, "epsilon must be < size.ln()");
+            }
+            // TODO: Consider relaxing this check
+            if del >= _size.recip() {
+                return fallible!(RelationDebug, "del must be < 1/size");
+            }
             if scale < ideal_scale {
                 return fallible!(RelationDebug, "scale must be >= d_in / (epsilon * size)")
             }
