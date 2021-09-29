@@ -5,13 +5,13 @@ use crate::dist::{L2Distance, SmoothedMaxDivergence, AbsoluteDistance};
 use crate::dom::{AllDomain, VectorDomain};
 use crate::error::*;
 use crate::samplers::SampleGaussian;
-use crate::traits::{InfCast, CheckNull, InfMul, AlertingAdd};
+use crate::traits::{InfCast, CheckNull, InfMul, InfAdd};
 
 // const ADDITIVE_GAUSS_CONST: f64 = 8. / 9. + (2. / std::f64::consts::PI).ln();
 const ADDITIVE_GAUSS_CONST: f64 = 0.4373061836;
 
 fn make_gaussian_privacy_relation<T, MI>(scale: T) -> PrivacyRelation<MI, SmoothedMaxDivergence<T>>
-    where T: 'static + Clone + SampleGaussian + Float + InfCast<f64> + InfMul + AlertingAdd,
+    where T: 'static + Clone + SampleGaussian + Float + InfCast<f64> + InfMul + InfAdd,
           MI: SensitivityMetric<Distance=T> {
     PrivacyRelation::new_fallible(move |&d_in: &T, &(eps, del): &(T, T)| {
         let _2 = T::inf_cast(2.)?;
@@ -29,7 +29,7 @@ fn make_gaussian_privacy_relation<T, MI>(scale: T) -> PrivacyRelation<MI, Smooth
 
         Ok(eps.min(T::one()).inf_mul(&scale)? >=
             d_in.inf_mul(&additive_gauss_const
-                .alerting_add(&_2.inf_mul(&del.recip().ln())?)?.sqrt())?)
+                .inf_add(&_2.inf_mul(&del.recip().ln())?)?.sqrt())?)
     })
 }
 
@@ -69,7 +69,7 @@ impl<T> GaussianDomain for VectorDomain<AllDomain<T>>
 
 pub fn make_base_gaussian<D>(scale: D::Atom) -> Fallible<Measurement<D, D, D::Metric, SmoothedMaxDivergence<D::Atom>>>
     where D: GaussianDomain,
-          D::Atom: 'static + Clone + SampleGaussian + Float + InfCast<f64> + CheckNull + InfMul + AlertingAdd {
+          D::Atom: 'static + Clone + SampleGaussian + Float + InfCast<f64> + CheckNull + InfMul + InfAdd {
     if scale.is_sign_negative() {
         return fallible!(MakeMeasurement, "scale must not be negative")
     }
